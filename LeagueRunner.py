@@ -100,16 +100,33 @@ class League:
     def evaluate_week(self, week_number):
         # Find match-ups for the week and evaluate each
         # Made for a 12 man league specifically to make match-ups even, may or may not work for other sizes
+        # It might have been slightly ridiculous to codify this, but for a 12 man league it works out to this:
+        #
+        #         Opponents over the 16 weeks
+        # Team 1: 12, 11, 10,  9,  8,  7,  6,  5,  4,  3,  2,  7, 12, 11, 10,  9
+        # Team 2: 11, 10,  9,  8,  7,  6,  5,  4,  3,  8,  1, 12, 11, 10,  9,  8
+        # Team 3: 10,  9,  8,  7,  6,  5,  4,  9,  2,  1, 12, 11, 10,  9,  8,  7
+        # Team 4:  9,  8,  7,  6,  5, 10,  3,  2,  1, 12, 11, 10,  9,  8,  7,  6
+        # Team 5:  8,  7,  6, 11,  4,  3,  2,  1, 12, 11, 10,  9,  8,  7,  6, 11
+        # Team 6:  7, 12,  5,  4,  3,  2,  1, 12, 11, 10,  9,  8,  7, 12,  5,  4
+        # Team 7:  6,  5,  4,  3,  2,  1, 12, 11, 10,  9,  8,  1,  6,  5,  4,  3
+        # Team 8:  5,  4,  3,  2,  1, 12, 11, 10,  9,  2,  7,  6,  5,  4,  3,  2
+        # Team 9:  4,  3,  2,  1, 12, 11, 10,  3,  8,  7,  6,  5,  4,  3,  2,  1
+        # Team 10: 3,  2,  1, 12, 11,  4,  9,  8,  7,  6,  5,  4,  3,  2,  1, 12
+        # Team 11: 2,  1, 12,  5, 10,  9,  8,  7,  6,  5,  4,  3,  2,  1, 12,  5
+        # Team 12: 1,  6, 11, 10,  9,  8,  7,  6,  5,  4,  3,  2,  1,  6, 11, 10
+
         evaluated = []
         for i in range(0, int(len(self.teams) / 2)):
             for j in range(0, int(len(self.teams) / 2)):
                 if (i + j) not in evaluated:
                     opponent_number = (league_size - (((i + j) + week_number) % league_size)) % league_size
                     if week_number <= league_size + 1:
+                        # Collision (scheduled against yourself) for weeks 1 through [league_size + 1]
                         if opponent_number == i + j:
                             opponent_number += int(league_size / 2)
                     elif week_number % 2 == 0:
-                        # Create new collision scheduling to avoid playing an opponent 3 times
+                        # Create new collision scheduling (see weeks 14-16 above) to avoid playing an opponent 3 times
                         if ((i + j + 1) + int((week_number - (league_size + 1)) / 2)) % 3 == 0:
                             opponent_number = i + j + 3
 
