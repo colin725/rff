@@ -3,6 +3,7 @@ import sys
 import inspect
 import random
 import csv
+import cProfile
 
 league_size = 12
 weeks_in_season = 16
@@ -43,7 +44,7 @@ class League:
 
     def __init__(self, robots, players):
         self.robots = robots
-        self.available_players = players
+        self.available_players = players.copy()
 
     def __eq__(self, other):
         return self.robots == other.robots
@@ -60,7 +61,7 @@ class League:
             repr_string += str(team) + "\n"
         return repr_string
 
-    def set_up(self):
+    def set_up(self, debug_info):
         ordered_robots = []
 
         # Set draft order
@@ -69,14 +70,15 @@ class League:
             ordered_robots.append(self.robots[next_team])
             self.robots.pop(next_team)
         self.robots = ordered_robots
-        print(self.robots)
+        if debug_info:
+            print(self.robots)
 
         # Create empty teams
         for robot in self.robots:
             self.teams[robot.num] = Team()
 
     # Complete a single round of drafting
-    def draft_round(self, drafting_round):
+    def draft_round(self, drafting_round, debug_info):
         this_round = []
 
         def select_player(robot_selector):
@@ -85,7 +87,8 @@ class League:
             self.teams[robot_selector.num].add_player(selected)
             return selected
 
-        print("\nDrafting round " + str(drafting_round + 1) + ": ")
+        if debug_info:
+            print("\nDrafting round " + str(drafting_round + 1) + ": ")
         if not self.snake_round:
             for robot in self.robots:
                 this_round.append(select_player(robot))
@@ -94,7 +97,8 @@ class League:
             for robot in reversed(self.robots):
                 this_round.append(select_player(robot))
             self.snake_round = False
-        print("    " + str(this_round))
+        if debug_info:
+            print("    " + str(this_round))
 
     # evaluate a week
     def evaluate_week(self, week_number):
@@ -102,19 +106,19 @@ class League:
         # Made for a 12 man league specifically to make match-ups even, may or may not work for other sizes
         # It might have been slightly ridiculous to codify this, but for a 12 man league it works out to this:
         #
-        #         Opponents over the 16 weeks
+        #    Opponents over the 16 weeks (last 3 weeks have a slightly different pattern)
         # Team 1: 12, 11, 10,  9,  8,  7,  6,  5,  4,  3,  2,  7, 12, 11, 10,  9
-        # Team 2: 11, 10,  9,  8,  7,  6,  5,  4,  3,  8,  1, 12, 11, 10,  9,  8
-        # Team 3: 10,  9,  8,  7,  6,  5,  4,  9,  2,  1, 12, 11, 10,  9,  8,  7
+        # Team 2: 11, 10,  9,  8,  7,  6,  5,  4,  3,  8,  1, 12, 11, 10,  9,  5
+        # Team 3: 10,  9,  8,  7,  6,  5,  4,  9,  2,  1, 12, 11, 10,  6,  8,  7
         # Team 4:  9,  8,  7,  6,  5, 10,  3,  2,  1, 12, 11, 10,  9,  8,  7,  6
-        # Team 5:  8,  7,  6, 11,  4,  3,  2,  1, 12, 11, 10,  9,  8,  7,  6, 11
-        # Team 6:  7, 12,  5,  4,  3,  2,  1, 12, 11, 10,  9,  8,  7, 12,  5,  4
+        # Team 5:  8,  7,  6, 11,  4,  3,  2,  1, 12, 11, 10,  9,  8,  7,  6,  2
+        # Team 6:  7, 12,  5,  4,  3,  2,  1, 12, 11, 10,  9,  8,  7,  3,  5,  4
         # Team 7:  6,  5,  4,  3,  2,  1, 12, 11, 10,  9,  8,  1,  6,  5,  4,  3
-        # Team 8:  5,  4,  3,  2,  1, 12, 11, 10,  9,  2,  7,  6,  5,  4,  3,  2
-        # Team 9:  4,  3,  2,  1, 12, 11, 10,  3,  8,  7,  6,  5,  4,  3,  2,  1
+        # Team 8:  5,  4,  3,  2,  1, 12, 11, 10,  9,  2,  7,  6,  5,  4,  3, 11
+        # Team 9:  4,  3,  2,  1, 12, 11, 10,  3,  8,  7,  6,  5,  4, 12,  2,  1
         # Team 10: 3,  2,  1, 12, 11,  4,  9,  8,  7,  6,  5,  4,  3,  2,  1, 12
-        # Team 11: 2,  1, 12,  5, 10,  9,  8,  7,  6,  5,  4,  3,  2,  1, 12,  5
-        # Team 12: 1,  6, 11, 10,  9,  8,  7,  6,  5,  4,  3,  2,  1,  6, 11, 10
+        # Team 11: 2,  1, 12,  5, 10,  9,  8,  7,  6,  5,  4,  3,  2,  1, 12,  8
+        # Team 12: 1,  6, 11, 10,  9,  8,  7,  6,  5,  4,  3,  2,  1,  9, 11, 10
 
         evaluated = []
         for i in range(0, int(len(self.teams) / 2)):
@@ -211,11 +215,7 @@ class Team:
     def eval(self, eval_week):
         total = 0
         for player in self.players:
-            for possible_match in csv.reader(open(weekly_scores[player.position + str(eval_week - 1)], 'rt'),
-                                             delimiter=',', quotechar='|', skipinitialspace=True):
-                if possible_match[0] == player_names[player.adp - 1]:
-                    total += int(possible_match[2])
-                    break
+            total += int(weekly_scores.get(player.position + player_names[player.adp - 1] + str(eval_week), 0))
         return total
 
     @staticmethod
@@ -292,25 +292,36 @@ with open("data/players/" + year + "/adp.csv", 'rt') as adp_csv:
 for week in range(0, weeks_in_season):
     for position in Team.starting_slots.keys():
         if position != "FLEX":
-            weekly_scores[position + str(week)] =\
-                "data/players/" + year + "/week" + str(week + 1) + "/" + position + ".csv"
+            weekly_score_file = "data/players/" + year + "/week" + str(week + 1) + "/" + position + ".csv"
+            for player_score in csv.reader(open(weekly_score_file, 'rt'),
+                                           delimiter=',', quotechar='|', skipinitialspace=True):
+                weekly_scores[position + player_score[0] + str(week)] = player_score[2]
 
-# PLayers imported, create a league #
-league = create_league()
-print(league)
 
-print("\nRunning league sim, draft order:")
-random.seed(0)
-league.set_up()
+# Create a league of 12 robots
+def simulate_league(debug_info):
+    league = create_league()
+    if debug_info:
+        print(league)
 
-for round_num in range(0, Team.size()):
-    league.draft_round(round_num)
+        print("\nRunning league sim, draft order:")
+    random.seed(0)
+    league.set_up(debug_info)
 
-# print("\nAnd final teams:")
-# print(league.teams_to_string())
+    for round_num in range(0, Team.size()):
+        league.draft_round(round_num, debug_info)
 
-print("\nResults:")
-for league_week in range(0, weeks_in_season):
-    league.evaluate_week(league_week + 1)
+    if debug_info:
+        print("\nResults:")
+    for league_week in range(0, weeks_in_season):
+        league.evaluate_week(league_week + 1)
 
-league.print_results()
+    if debug_info:
+        league.print_results()
+
+
+def run_many_leagues(number_of_leagues, debug_info):
+    for _ in range(number_of_leagues):
+        simulate_league(debug_info)
+
+cProfile.run('run_many_leagues(100, False)')
