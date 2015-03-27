@@ -7,9 +7,11 @@ import cProfile
 
 league_size = 12
 weeks_in_season = 16
+year = "2014"
+
+robots = []
 player_list = []
 player_names = []
-year = "2014"
 
 weekly_scores = {}
 
@@ -19,6 +21,9 @@ class Robot:
         self.name = name
         self.obj = obj
         self.num = num
+        self.playoff_appearances = 0
+        self.average_position = 0
+        self.leagues_played = 0
 
     def __eq__(self, other):
         return self.name == other.name
@@ -35,19 +40,21 @@ class Robot:
     def draft_player(self, available_players, team):
         return self.obj.draft_player(available_players, team)
 
+    def made_playoffs(self):
+        self.playoff_appearances += 1
+
+    def position_played(self, draft_position):
+        self.average_position = (self.average_position * self.leagues_played + draft_position)\
+            / (self.leagues_played + 1)
+        self.leagues_played += 1
+
 
 class League:
-    teams = {}
-    robots = []
-    available_players = []
-    snake_round = False
-
-    def __init__(self, robots, players):
-        self.robots = robots
-        self.available_players = players.copy()
-
-    def __eq__(self, other):
-        return self.robots == other.robots
+    def __init__(self):
+        self.available_players = player_list.copy()
+        self.robots = robots.copy()
+        self.teams = {}
+        self.snake_round = False
 
     def __repr__(self):
         repr_string = "League: \n"
@@ -62,14 +69,10 @@ class League:
         return repr_string
 
     def set_up(self, debug_info):
-        ordered_robots = []
-
         # Set draft order
-        while len(self.robots) > 0:
-            next_team = int(random.random() * (len(self.robots) - 1))
-            ordered_robots.append(self.robots[next_team])
-            self.robots.pop(next_team)
-        self.robots = ordered_robots
+        random.shuffle(self.robots)
+        for i in range(0, len(self.robots)):
+            self.robots[i].position_played(i)
         if debug_info:
             print(self.robots)
 
@@ -139,17 +142,45 @@ class League:
                     evaluated.append(opponent_number)
 
                     # Match up chosen, evaluate it...
-                    team1_total = self.teams[i+j].eval(week_number)
-                    team2_total = self.teams[opponent_number].eval(week_number)
+                    team1_total = self.teams[self.robots[i+j].num].eval(week_number)
+                    team2_total = self.teams[self.robots[opponent_number].num].eval(week_number)
                     if team1_total > team2_total:
-                        self.teams[i+j].wins += 1
+                        self.teams[self.robots[i+j].num].wins += 1
                     else:
-                        self.teams[opponent_number].wins += 1
+                        self.teams[self.robots[opponent_number].num].wins += 1
                     break
 
-    def print_results(self):
+    def run_playoffs(self, debug_info):
+        # TODO tie breakers!!!!!
+        playoff_robots = []
+        for i in range(0, len(self.robots)):
+            unranked_robot = self.robots[i]
+            for j in range(0, 4):
+                if len(playoff_robots) <= j:
+                    playoff_robots.append(unranked_robot)
+                    break
+                elif self.teams[unranked_robot.num].wins > self.teams[playoff_robots[j].num].wins:
+                    temp_robot = playoff_robots[j]
+                    playoff_robots[j] = unranked_robot
+                    unranked_robot = temp_robot
+        if debug_info:
+            print("Playoff teams:")
+        for i in range(0, 4):
+            playoff_robots[i].made_playoffs()
+            if debug_info:
+                print("#" + str(i) + ": " + playoff_robots[i].name + " (" + str(playoff_robots[i].num) + ")" +
+                      " with record " + str(self.teams[playoff_robots[i].num].wins) + "-" +
+                      str(weeks_in_season - self.teams[playoff_robots[i].num].wins))
+        if debug_info:
+            print()
+
+    def print_regular_season_results(self):
+        print("Regular season results:")
         for i in range(0, len(self.teams)):
-            print(str(i + 1) + ": " + self.robots[i].name + "   " + str(self.teams[i].wins) + "-" + str(weeks_in_season - self.teams[i].wins))
+            print(str(self.robots[i].num) + ": " + self.robots[i].name + "   " +
+                  str(self.teams[self.robots[i].num].wins) + "-" + str(weeks_in_season -
+                                                                       self.teams[self.robots[i].num].wins))
+        print()
 
 
 class Team:
@@ -166,22 +197,22 @@ class Team:
         wr_found = 0
         te_found = 0
         flex = ""
-        for position in Team.starting_slots.keys():
-            if not position == "FLEX":
-                repr_string += position + ": \n"
+        for repr_position in Team.starting_slots.keys():
+            if not repr_position == "FLEX":
+                repr_string += repr_position + ": \n"
                 for player in self.players:
-                    if player.position == position:
-                        if position == "RB":
+                    if player.position == repr_position:
+                        if repr_position == "RB":
                             if rb_found == Team.starting_slots["RB"]:
                                 flex = player_names[player.adp - 1]
                                 break
                             rb_found += 1
-                        elif position == "WR":
+                        elif repr_position == "WR":
                             if wr_found == Team.starting_slots["WR"]:
                                 flex = player_names[player.adp - 1]
                                 break
                             wr_found += 1
-                        elif position == "TE":
+                        elif repr_position == "TE":
                             if te_found == Team.starting_slots["TE"]:
                                 flex = player_names[player.adp - 1]
                                 break
@@ -191,8 +222,8 @@ class Team:
         repr_string += "\n"
         return repr_string
 
-    def available_spots(self, position):
-        return self.player_slots[position]
+    def available_spots(self, available_position):
+        return self.player_slots[available_position]
 
     def add_player(self, player):
         self.players.append(player)
@@ -227,9 +258,9 @@ class Team:
 
 
 class Player:
-    def __init__(self, adp, position, team):
-        self.adp = adp
-        self.position = position
+    def __init__(self, player_adp, player_position, team):
+        self.adp = player_adp
+        self.position = player_position
         self.team = team
 
     def __repr__(self):
@@ -238,13 +269,42 @@ class Player:
 
 def new_imports(exclude):
     import_list = []
-    count = 0
+    import_count = 0
     for name, obj in inspect.getmembers(sys.modules[__name__]):
-        robot = Robot(name, obj, count)
+        robot = Robot(name, obj, import_count)
         if inspect.ismodule(obj) and robot not in exclude:
             import_list.append(robot)
-            count += 1
+            import_count += 1
     return import_list
+
+
+# Create a league of 12 robots
+def simulate_league(debug_info):
+    league = League()
+    if debug_info:
+        print(league)
+
+        print("\nRunning league sim, draft order:")
+    league.set_up(debug_info)
+
+    for round_num in range(0, Team.size()):
+        league.draft_round(round_num, debug_info)
+
+    if debug_info:
+        print("\nResults:")
+    for league_week in range(0, weeks_in_season):
+        league.evaluate_week(league_week + 1)
+    if debug_info:
+        league.print_regular_season_results()
+
+    league.run_playoffs(debug_info)
+
+
+def run_many_leagues(number_of_leagues, debug_info):
+    for _ in range(number_of_leagues):
+        simulate_league(debug_info)
+        # Try to better distribute our random by shuffling the list...
+        random.shuffle(robots)
 
 
 # Create list robots and fill in robots
@@ -257,27 +317,18 @@ from defaultrobots import *
 fill_in_list = new_imports(ignore_list + robot_list)
 print("Robots filling in: " + str(fill_in_list) + "\n\n")
 
-
-# Create a league of 12 robots
-def create_league():
-    robots = []
-    extras = 0
-
-    # Set robots playing
-    count = 0
-    while count < league_size:
-        if len(robot_list) > 0:
-            # Add available robots first
-            robots.append(robot_list[0])
-            robot_list.pop(0)
-        else:
-            fill_in_robot = fill_in_list[extras % len(fill_in_list)].copy()
-            fill_in_robot.set_num(count)
-            robots.append(fill_in_robot)
-            extras += 1
-        count += 1
-
-    return League(robots, player_list)
+# Set our 12 robots playing
+count = 0
+while count < league_size:
+    if len(robot_list) > 0:
+        # Add available robots first
+        robots.append(robot_list[0])
+        robot_list.pop(0)
+    else:
+        fill_in_robot = fill_in_list[(count - len(robot_list)) % len(fill_in_list)].copy()
+        fill_in_robot.set_num(count)
+        robots.append(fill_in_robot)
+    count += 1
 
 
 # Import player adp and weekly scores
@@ -298,30 +349,12 @@ for week in range(0, weeks_in_season):
                 weekly_scores[position + player_score[0] + str(week)] = player_score[2]
 
 
-# Create a league of 12 robots
-def simulate_league(debug_info):
-    league = create_league()
-    if debug_info:
-        print(league)
+league_runs = 10000
+debug_statements = False
+random.seed("rff seed")
+cProfile.run('run_many_leagues(league_runs, debug_statements)')
 
-        print("\nRunning league sim, draft order:")
-    random.seed(0)
-    league.set_up(debug_info)
-
-    for round_num in range(0, Team.size()):
-        league.draft_round(round_num, debug_info)
-
-    if debug_info:
-        print("\nResults:")
-    for league_week in range(0, weeks_in_season):
-        league.evaluate_week(league_week + 1)
-
-    if debug_info:
-        league.print_results()
-
-
-def run_many_leagues(number_of_leagues, debug_info):
-    for _ in range(number_of_leagues):
-        simulate_league(debug_info)
-
-cProfile.run('run_many_leagues(100, False)')
+for robot_ in robots:
+    print(robot_.name + " made playoffs " + str(robot_.playoff_appearances / league_runs) + "%")
+    if debug_statements:
+        print("            avg pos: " + str(robot_.average_position))
