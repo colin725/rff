@@ -5,14 +5,21 @@ import random
 import csv
 import cProfile
 
-league_size = 12
-weeks_in_season = 16
+# Variables to change
 year = "2014"
+league_runs = 50000
+debug_statements = False
+
+# Not as likely to need changing
+league_size = 12
+weeks_in_season = 12
+playoff_weeks_per_matchup = 2
+num_playoff_teams = 4
+
 
 robots = []
 player_list = []
 player_names = []
-
 weekly_scores = {}
 
 
@@ -24,6 +31,7 @@ class Robot:
         self.playoff_appearances = 0
         self.average_position = 0
         self.leagues_played = 0
+        self.leagues_won = 0
 
     def __eq__(self, other):
         return self.name == other.name
@@ -42,6 +50,15 @@ class Robot:
 
     def made_playoffs(self):
         self.playoff_appearances += 1
+
+    def playoffs_percent(self):
+        return self.playoff_appearances / self.leagues_played
+
+    def won_league(self):
+        self.leagues_won += 1
+
+    def win_league_percent(self):
+        return self.leagues_won / self.leagues_played
 
     def position_played(self, draft_position):
         self.average_position = (self.average_position * self.leagues_played + draft_position)\
@@ -106,42 +123,35 @@ class League:
     # evaluate a week
     def evaluate_week(self, week_number):
         # Find match-ups for the week and evaluate each
-        # Made for a 12 man league specifically to make match-ups even, may or may not work for other sizes
-        # It might have been slightly ridiculous to codify this, but for a 12 man league it works out to this:
+        # Made for a 12 man league to make match-ups even, may or may not work for other sizes
+        # In a 12 man league it works out to this:
         #
-        #    Opponents over the 16 weeks (last 3 weeks have a slightly different pattern)
-        # Team 1: 12, 11, 10,  9,  8,  7,  6,  5,  4,  3,  2,  7, 12, 11, 10,  9
-        # Team 2: 11, 10,  9,  8,  7,  6,  5,  4,  3,  8,  1, 12, 11, 10,  9,  5
-        # Team 3: 10,  9,  8,  7,  6,  5,  4,  9,  2,  1, 12, 11, 10,  6,  8,  7
-        # Team 4:  9,  8,  7,  6,  5, 10,  3,  2,  1, 12, 11, 10,  9,  8,  7,  6
-        # Team 5:  8,  7,  6, 11,  4,  3,  2,  1, 12, 11, 10,  9,  8,  7,  6,  2
-        # Team 6:  7, 12,  5,  4,  3,  2,  1, 12, 11, 10,  9,  8,  7,  3,  5,  4
-        # Team 7:  6,  5,  4,  3,  2,  1, 12, 11, 10,  9,  8,  1,  6,  5,  4,  3
-        # Team 8:  5,  4,  3,  2,  1, 12, 11, 10,  9,  2,  7,  6,  5,  4,  3, 11
-        # Team 9:  4,  3,  2,  1, 12, 11, 10,  3,  8,  7,  6,  5,  4, 12,  2,  1
-        # Team 10: 3,  2,  1, 12, 11,  4,  9,  8,  7,  6,  5,  4,  3,  2,  1, 12
-        # Team 11: 2,  1, 12,  5, 10,  9,  8,  7,  6,  5,  4,  3,  2,  1, 12,  8
-        # Team 12: 1,  6, 11, 10,  9,  8,  7,  6,  5,  4,  3,  2,  1,  9, 11, 10
+        #          Opponents over the regular season (12 weeks)
+        # Team 1: 12, 11, 10,  9,  8,  7,  6,  5,  4,  3,  2,  7
+        # Team 2: 11, 10,  9,  8,  7,  6,  5,  4,  3,  8,  1, 12
+        # Team 3: 10,  9,  8,  7,  6,  5,  4,  9,  2,  1, 12, 11
+        # Team 4:  9,  8,  7,  6,  5, 10,  3,  2,  1, 12, 11, 10
+        # Team 5:  8,  7,  6, 11,  4,  3,  2,  1, 12, 11, 10,  9
+        # Team 6:  7, 12,  5,  4,  3,  2,  1, 12, 11, 10,  9,  8
+        # Team 7:  6,  5,  4,  3,  2,  1, 12, 11, 10,  9,  8,  1
+        # Team 8:  5,  4,  3,  2,  1, 12, 11, 10,  9,  2,  7,  6
+        # Team 9:  4,  3,  2,  1, 12, 11, 10,  3,  8,  7,  6,  5
+        # Team 10: 3,  2,  1, 12, 11,  4,  9,  8,  7,  6,  5,  4
+        # Team 11: 2,  1, 12,  5, 10,  9,  8,  7,  6,  5,  4,  3
+        # Team 12: 1,  6, 11, 10,  9,  8,  7,  6,  5,  4,  3,  2
 
         evaluated = []
         for i in range(0, int(len(self.teams) / 2)):
             for j in range(0, int(len(self.teams) / 2)):
                 if (i + j) not in evaluated:
                     opponent_number = (league_size - (((i + j) + week_number) % league_size)) % league_size
-                    if week_number <= league_size + 1:
-                        # Collision (scheduled against yourself) for weeks 1 through [league_size + 1]
-                        if opponent_number == i + j:
-                            opponent_number += int(league_size / 2)
-                    elif week_number % 2 == 0:
-                        # Create new collision scheduling (see weeks 14-16 above) to avoid playing an opponent 3 times
-                        if ((i + j + 1) + int((week_number - (league_size + 1)) / 2)) % 3 == 0:
-                            opponent_number = i + j + 3
-
-                    # print(str(i + j + 1) + " vs " + str(opponent_number + 1))
+                    if opponent_number == i + j:
+                        # Collision.  Scheduled against yourself, so swap with the other team against itself
+                        opponent_number += int(league_size / 2)
                     evaluated.append(i + j)
                     evaluated.append(opponent_number)
 
-                    # Match up chosen, evaluate it...
+                    # Match-up chosen, evaluate it...
                     team1_total = self.teams[self.robots[i+j].num].eval(week_number)
                     team2_total = self.teams[self.robots[opponent_number].num].eval(week_number)
                     if team1_total > team2_total:
@@ -151,21 +161,25 @@ class League:
                     break
 
     def run_playoffs(self, debug_info):
-        # TODO tie breakers!!!!!
+        # We're taking the top records.  We don't have divisions.
         playoff_robots = []
         for i in range(0, len(self.robots)):
             unranked_robot = self.robots[i]
-            for j in range(0, 4):
+            for j in range(0, num_playoff_teams):
                 if len(playoff_robots) <= j:
                     playoff_robots.append(unranked_robot)
                     break
-                elif self.teams[unranked_robot.num].wins > self.teams[playoff_robots[j].num].wins:
+                elif self.teams[unranked_robot.num].wins > self.teams[playoff_robots[j].num].wins or\
+                        self.teams[unranked_robot.num].wins == self.teams[playoff_robots[j].num].wins and\
+                        self.teams[unranked_robot.num].season_total() >\
+                        self.teams[playoff_robots[j].num].season_total():
                     temp_robot = playoff_robots[j]
                     playoff_robots[j] = unranked_robot
                     unranked_robot = temp_robot
+
         if debug_info:
             print("Playoff teams:")
-        for i in range(0, 4):
+        for i in range(0, num_playoff_teams):
             playoff_robots[i].made_playoffs()
             if debug_info:
                 print("#" + str(i) + ": " + playoff_robots[i].name + " (" + str(playoff_robots[i].num) + ")" +
@@ -173,6 +187,29 @@ class League:
                       str(weeks_in_season - self.teams[playoff_robots[i].num].wins))
         if debug_info:
             print()
+
+        # We have the playoff teams, evaluate them
+        scores = [0] * num_playoff_teams
+        for playoff_week in range(0, playoff_weeks_per_matchup):
+            for playoff_team in range(0, num_playoff_teams):
+                scores[playoff_team] += self.teams[playoff_robots[playoff_team].num].eval(
+                    weeks_in_season + playoff_week + 1)
+
+        finals_robots = []
+        for playoff_matchup in range(0, int(num_playoff_teams / 2)):
+            finals_robots.append(playoff_robots[playoff_matchup] if scores[playoff_matchup] >
+                                 scores[num_playoff_teams - playoff_matchup - 1] else
+                                 playoff_robots[num_playoff_teams - playoff_matchup - 1])
+
+        # We have our teams in the next round (finals)
+        scores = [0] * len(finals_robots)
+        for finals_week in range(0, playoff_weeks_per_matchup):
+            for finals_team in range(0, len(finals_robots)):
+                scores[finals_team] += self.teams[finals_robots[finals_team].num].eval(
+                    weeks_in_season + playoff_weeks_per_matchup + finals_week + 1)
+
+        winning_robot = finals_robots[0] if scores[0] > scores[1] else finals_robots[1]
+        winning_robot.won_league()
 
     def print_regular_season_results(self):
         print("Regular season results:")
@@ -190,6 +227,7 @@ class Team:
         self.player_slots = Team.starting_slots.copy()
         self.players = []
         self.wins = 0
+        self.evaluated = {}
 
     def __repr__(self):
         repr_string = ""
@@ -244,10 +282,18 @@ class Team:
             return False
 
     def eval(self, eval_week):
-        total = 0
-        for player in self.players:
-            total += int(weekly_scores.get(player.position + player_names[player.adp - 1] + str(eval_week), 0))
+        total = self.evaluated.get(eval_week, 0)
+        if total == 0:
+            for player in self.players:
+                total += int(weekly_scores.get(player.position + player_names[player.adp - 1] + str(eval_week), 0))
+            self.evaluated[eval_week] = total
         return total
+
+    def season_total(self):
+        points = 0
+        for eval_week in range(0, weeks_in_season):
+            points += self.eval(eval_week)
+        return points
 
     @staticmethod
     def size():
@@ -308,14 +354,16 @@ def run_many_leagues(number_of_leagues, debug_info):
 
 
 # Create list robots and fill in robots
-print("\nImporting robot players...\n\n")
+print("\nImporting robot players...\n")
 ignore_list = new_imports([])
+# noinspection PyUnresolvedReferences
 from robots import *
 robot_list = new_imports(ignore_list)
-print("Robots playing: " + str(robot_list) + "\n\n")
+print("Robots playing: " + str(robot_list) + "\n")
+# noinspection PyUnresolvedReferences
 from defaultrobots import *
 fill_in_list = new_imports(ignore_list + robot_list)
-print("Robots filling in: " + str(fill_in_list) + "\n\n")
+print("Robots filling in: " + str(fill_in_list) + "\n")
 
 # Set our 12 robots playing
 count = 0
@@ -349,12 +397,16 @@ for week in range(0, weeks_in_season):
                 weekly_scores[position + player_score[0] + str(week)] = player_score[2]
 
 
-league_runs = 10000
-debug_statements = False
+print("Our 12 robots playing:")
+print(robots)
+print("\nCrunching leagues...\n")
 random.seed("rff seed")
 cProfile.run('run_many_leagues(league_runs, debug_statements)')
 
+if debug_statements:
+    for robot_ in robots:
+        print(robot_.name + " made playoffs " + str(robot_.playoffs_percent()) + "%")
+        print()
+
 for robot_ in robots:
-    print(robot_.name + " made playoffs " + str(robot_.playoff_appearances / league_runs) + "%")
-    if debug_statements:
-        print("            avg pos: " + str(robot_.average_position))
+    print(robot_.name + " won the league " + str(robot_.win_league_percent()) + "%")
