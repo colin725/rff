@@ -4,10 +4,12 @@ import inspect
 import random
 import csv
 import cProfile
+import os
+
 
 # Variables to change
 year = "2014"
-league_runs = 50000
+league_runs = 10000
 debug_statements = False
 
 # Not as likely to need changing
@@ -18,9 +20,9 @@ num_playoff_teams = 4
 
 
 robots = []
+player_history = []
+players_current_season = []
 player_list = []
-player_names = []
-weekly_scores = {}
 
 
 class Robot:
@@ -45,20 +47,23 @@ class Robot:
     def set_num(self, num):
         self.num = num
 
+    def set_info(self):
+        self.obj.set_info(player_list.copy())
+
     def draft_player(self, available_players, team):
-        return self.obj.draft_player(available_players, team)
+        return self.obj.draft_player(available_players.copy(), team.copy())
 
     def made_playoffs(self):
         self.playoff_appearances += 1
 
     def playoffs_percent(self):
-        return self.playoff_appearances / self.leagues_played
+        return self.playoff_appearances / self.leagues_played * 100
 
     def won_league(self):
         self.leagues_won += 1
 
     def win_league_percent(self):
-        return self.leagues_won / self.leagues_played
+        return self.leagues_won / self.leagues_played * 100
 
     def position_played(self, draft_position):
         self.average_position = (self.average_position * self.leagues_played + draft_position)\
@@ -68,7 +73,8 @@ class Robot:
 
 class League:
     def __init__(self):
-        self.available_players = player_list.copy()
+        # self.available_players = player_list.copy()
+        self.available_players = list(range(0, len(player_list)))
         self.robots = robots.copy()
         self.teams = {}
         self.snake_round = False
@@ -94,28 +100,31 @@ class League:
             print(self.robots)
 
         # Create empty teams
-        for robot in self.robots:
-            self.teams[robot.num] = Team()
+        for teamless_robot in self.robots:
+            self.teams[teamless_robot.num] = Team()
 
     # Complete a single round of drafting
     def draft_round(self, drafting_round, debug_info):
         this_round = []
 
         def select_player(robot_selector):
-            selected = robot_selector.draft_player(self.available_players, self.teams[robot_selector.num])
-            self.available_players.remove(selected)
-            self.teams[robot_selector.num].add_player(selected)
-            return selected
+            selected_player_number = robot_selector.draft_player(self.available_players, self.teams[robot_selector.num])
+            if selected_player_number not in self.available_players:
+                raise ValueError("A player number was passed from draft_player"
+                                 " that was not in the list of available players")
+            self.available_players.remove(selected_player_number)
+            self.teams[robot_selector.num].add_player(selected_player_number)
+            return selected_player_number
 
         if debug_info:
             print("\nDrafting round " + str(drafting_round + 1) + ": ")
         if not self.snake_round:
-            for robot in self.robots:
-                this_round.append(select_player(robot))
+            for robot_for_snake in self.robots:
+                this_round.append(player_list[select_player(robot_for_snake)])
             self.snake_round = True
         else:
-            for robot in reversed(self.robots):
-                this_round.append(select_player(robot))
+            for robot_for_snake in reversed(self.robots):
+                this_round.append(player_list[select_player(robot_for_snake)])
             self.snake_round = False
         if debug_info:
             print("    " + str(this_round))
@@ -155,8 +164,12 @@ class League:
                     team1_total = self.teams[self.robots[i+j].num].eval(week_number)
                     team2_total = self.teams[self.robots[opponent_number].num].eval(week_number)
                     if team1_total > team2_total:
+                        if debug_statements:
+                            print("   matchup " + str(team1_total) + " > " + str(team2_total))
                         self.teams[self.robots[i+j].num].wins += 1
                     else:
+                        if debug_statements:
+                            print("   matchup " + str(team1_total) + " < " + str(team2_total))
                         self.teams[self.robots[opponent_number].num].wins += 1
                     break
 
@@ -229,6 +242,16 @@ class Team:
         self.wins = 0
         self.evaluated = {}
 
+    def set_fields(self, player_slots, players, wins, evaluated):
+        self.player_slots = player_slots
+        self.players = players
+        self.wins = wins
+        self.evaluated = evaluated
+        return self
+
+    def copy(self):
+        return Team().set_fields(self.player_slots.copy(), self.players.copy(), self.wins, self.evaluated.copy())
+
     def __repr__(self):
         repr_string = ""
         rb_found = 0
@@ -242,20 +265,20 @@ class Team:
                     if player.position == repr_position:
                         if repr_position == "RB":
                             if rb_found == Team.starting_slots["RB"]:
-                                flex = player_names[player.adp - 1]
+                                flex = player_list[player.adp - 1]
                                 break
                             rb_found += 1
                         elif repr_position == "WR":
                             if wr_found == Team.starting_slots["WR"]:
-                                flex = player_names[player.adp - 1]
+                                flex = player_list[player.adp - 1]
                                 break
                             wr_found += 1
                         elif repr_position == "TE":
                             if te_found == Team.starting_slots["TE"]:
-                                flex = player_names[player.adp - 1]
+                                flex = player_list[player.adp - 1]
                                 break
                             te_found += 1
-                        repr_string += "  " + player_names[player.adp - 1] + "\n"
+                        repr_string += "  " + player_list[player.adp - 1] + "\n"
         repr_string += "Flex:\n  " + flex + "\n"
         repr_string += "\n"
         return repr_string
@@ -263,15 +286,16 @@ class Team:
     def available_spots(self, available_position):
         return self.player_slots[available_position]
 
-    def add_player(self, player):
-        self.players.append(player)
-        if self.player_slots[player.position] == 0:
-            if self.player_slots["FLEX"] > 0 and player.position in ["RB", "WR", "TE"]:
+    def add_player(self, player_number):
+        self.players.append(players_current_season[player_number])
+        if self.player_slots[players_current_season[player_number].position] == 0:
+            if self.player_slots["FLEX"] > 0 and players_current_season[player_number].position in ["RB", "WR", "TE"]:
                 self.player_slots["FLEX"] -= 1
             else:
-                raise ValueError("A " + str(player.position) + " was drafted when the team was already full.")
+                raise ValueError("A " + str(players_current_season[player_number].position) +
+                                 " was drafted when the team was already full.")
         else:
-            self.player_slots[player.position] -= 1
+            self.player_slots[players_current_season[player_number].position] -= 1
 
     def is_position_open(self, position_questioned):
         if self.player_slots[position_questioned] > 0:
@@ -285,13 +309,14 @@ class Team:
         total = self.evaluated.get(eval_week, 0)
         if total == 0:
             for player in self.players:
-                total += int(weekly_scores.get(player.position + player_names[player.adp - 1] + str(eval_week), 0))
+                if players_current_season[player.adp] is not None:
+                    total += players_current_season[player.adp].get_week_score(eval_week)
             self.evaluated[eval_week] = total
         return total
 
     def season_total(self):
         points = 0
-        for eval_week in range(0, weeks_in_season):
+        for eval_week in range(1, weeks_in_season + 1):
             points += self.eval(eval_week)
         return points
 
@@ -304,22 +329,55 @@ class Team:
 
 
 class Player:
-    def __init__(self, player_adp, player_position, team):
-        self.adp = player_adp
-        self.position = player_position
+    def __init__(self, name, personal_adp, personal_position, team):
+        self.name = name
+        self.adp = personal_adp
+        self.position = personal_position
         self.team = team
 
     def __repr__(self):
-        return str(player_names[self.adp - 1])
+        return str(self.name)
+
+
+class PlayerHistory:
+    def __init__(self, position, file_content):
+        self.position = position
+
+
+class PlayerCurrentSeason:
+    def __init__(self, position, player_adp, file_content):
+        self.position = position
+        self.adp = player_adp
+        self.weekly_scores = [0]*18
+
+        found_season = False
+        for line in file_content:
+            if "season " + year in line:
+                found_season = True
+            elif found_season:
+                if "season " in line:
+                    break
+                else:
+                    def is_int(number):
+                        try:
+                            int(number)
+                            return True
+                        except ValueError:
+                            return False
+                    if is_int(line[9:11]):
+                        self.weekly_scores[int(line[9:11]) - 1] = float(line[line.rfind(" ") + 1:])
+
+    def get_week_score(self, week_number):
+        return self.weekly_scores[week_number - 1]
 
 
 def new_imports(exclude):
     import_list = []
     import_count = 0
     for name, obj in inspect.getmembers(sys.modules[__name__]):
-        robot = Robot(name, obj, import_count)
-        if inspect.ismodule(obj) and robot not in exclude:
-            import_list.append(robot)
+        robot_import = Robot(name, obj, import_count)
+        if inspect.ismodule(obj) and robot_import not in exclude:
+            import_list.append(robot_import)
             import_count += 1
     return import_list
 
@@ -339,6 +397,8 @@ def simulate_league(debug_info):
     if debug_info:
         print("\nResults:")
     for league_week in range(0, weeks_in_season):
+        if debug_statements:
+            print(" Eval week " + str(league_week + 1))
         league.evaluate_week(league_week + 1)
     if debug_info:
         league.print_regular_season_results()
@@ -378,24 +438,27 @@ while count < league_size:
         robots.append(fill_in_robot)
     count += 1
 
-
-# Import player adp and weekly scores
-with open("data/players/" + year + "/adp.csv", 'rt') as adp_csv:
+# Import player adp and history
+with open("data/adp" + year + ".csv", 'rt') as adp_csv:
     adp_reader = csv.reader(adp_csv, delimiter=',', quotechar='|', skipinitialspace=True)
     adp = 1
     for row in adp_reader:
-        player_list.append(Player(adp, row[2], row[1]))
-        player_names.append(row[0])
+        player_name = row[0]
+        player_team = row[1]
+        player_position = row[2]
+        player_list.append(Player(player_name, adp, player_position, player_team))
+        player_file_path = "data/players/" + player_position + "/" + player_name + ".csv"
+        if os.path.isfile(player_file_path):
+            with open(player_file_path) as current_file:
+                player_history.append(PlayerHistory(player_position, current_file))
+                players_current_season.append(PlayerCurrentSeason(player_position, adp, current_file))
+        elif debug_statements:
+            print("!! Missing player file: " + player_name + " !!")
         adp += 1
 
-for week in range(0, weeks_in_season):
-    for position in Team.starting_slots.keys():
-        if position != "FLEX":
-            weekly_score_file = "data/players/" + year + "/week" + str(week + 1) + "/" + position + ".csv"
-            for player_score in csv.reader(open(weekly_score_file, 'rt'),
-                                           delimiter=',', quotechar='|', skipinitialspace=True):
-                weekly_scores[position + player_score[0] + str(week)] = player_score[2]
-
+# Give the robots the information on players
+for robot in robots:
+    robot.set_info()
 
 print("Our 12 robots playing:")
 print(robots)
@@ -406,7 +469,7 @@ cProfile.run('run_many_leagues(league_runs, debug_statements)')
 if debug_statements:
     for robot_ in robots:
         print(robot_.name + " made playoffs " + str(robot_.playoffs_percent()) + "%")
-        print()
+    print()
 
 for robot_ in robots:
     print(robot_.name + " won the league " + str(robot_.win_league_percent()) + "%")
