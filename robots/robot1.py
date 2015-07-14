@@ -12,14 +12,14 @@ def set_info(player_history_init):
     global player_history
     player_history = player_history_init
 
-    ##   To help visualize the data given on player history uncomment this block to see it printed out
-    ##   once for each position.
-
-    first_pos = {"QB": True, "RB": True, "WR": True, "TE": True, "K": True, "DEF": True}
-    for player in player_history:
-        if first_pos[player.position]:
-            print(str(player))
-            first_pos[player.position] = False
+    # ##   To help visualize the data given on player history uncomment this block to see it printed out
+    # ##   once for each position.
+    #
+    # first_pos = {"QB": True, "RB": True, "WR": True, "TE": True, "K": True, "DEF": True}
+    # for player in player_history:
+    #     if first_pos[player.position]:
+    #         print(str(player))
+    #         first_pos[player.position] = False
 
 
 def draft_player(available_players, team):

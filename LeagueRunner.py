@@ -8,8 +8,8 @@ import os
 
 
 # Variables to change
-year = "2014"
-league_runs = 10000
+year = 2014
+league_runs = 1000
 debug_statements = False
 
 # Not as likely to need changing
@@ -362,16 +362,18 @@ class PlayerHistory:
                         year_found = "Projected"
                     else:
                         year_found = int(line.split()[1])
-                    if year_found != year:
+                    if year_found == "Projected" or year_found < year:
                         self.yearly_data[year_found] = PlayerYear(position)
                         self.yearly_data[year_found].add_season_totals(line.split())
             else:
-                if is_int(line.split()[1]):
+                if is_int(line.split()[1]) and year_found in self.yearly_data:
                     week_number = int(line.split()[1])
                     self.yearly_data[year_found].add_week_data(week_number, line.split())
 
     def __repr__(self):
         represent_self = "PlayerHistory for " + player_list[self.adp - 1].name + ", position: " + self.position + "\n"
+        if "Projected" in self.yearly_data:
+            represent_self += "    Projected year " + str(self.yearly_data["Projected"]) + "\n"
         for repr_year in range(2050, 1990, -1):
             if repr_year in self.yearly_data:
                 represent_self += "    Year " + str(repr_year) + " " + str(self.yearly_data[repr_year]) + "\n"
@@ -723,7 +725,7 @@ class PlayerCurrentSeason:
 
         found_season = False
         for line in file_content:
-            if "season " + year in line:
+            if "season " + str(year) in line:
                 found_season = True
             elif found_season:
                 if "season " in line:
@@ -810,7 +812,7 @@ while count < league_size:
     count += 1
 
 # Import player adp and history
-with open("data/adp" + year + ".csv", 'rt') as adp_csv:
+with open("data/adp" + str(year) + ".csv", 'rt') as adp_csv:
     adp_reader = csv.reader(adp_csv, delimiter=',', quotechar='|', skipinitialspace=True)
     adp = 1
     for row in adp_reader:

@@ -10,13 +10,13 @@ random.seed("seed123")
 variance = 3
 
 
-def set_info(player_list_init):
-    global player_list
-    player_list = player_list_init
+def set_info(player_history_init):
+    global player_history
+    player_history = player_history_init
 
 
 def draft_player(available_players, team):
     down_shift = random.randint(0, variance)
     for i in range(0, len(available_players) - down_shift):
-        if team.is_position_open(player_list[available_players[i + down_shift]].position):
+        if team.is_position_open(player_history[available_players[i + down_shift]].position):
             return available_players[i + down_shift]
