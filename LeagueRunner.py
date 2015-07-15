@@ -359,21 +359,26 @@ class PlayerHistory:
             if "season " in line:
                 if is_int(line.split()[1]):
                     if "(Projected)" in line:
-                        year_found = "Projected"
+                        if int(line.split()[1]) == year:
+                            year_found = "Projected"
+                        else:
+                            year_found = None
                     else:
                         year_found = int(line.split()[1])
-                    if year_found == "Projected" or year_found < year:
-                        self.yearly_data[year_found] = PlayerYear(position)
-                        self.yearly_data[year_found].add_season_totals(line.split())
+                    if year_found is not None:
+                        if year_found == "Projected" or year_found < year:
+                            self.yearly_data[year_found] = PlayerYear(position)
+                            self.yearly_data[year_found].add_season_totals(line.split())
             else:
-                if is_int(line.split()[1]) and year_found in self.yearly_data:
-                    week_number = int(line.split()[1])
-                    self.yearly_data[year_found].add_week_data(week_number, line.split())
+                if not line.isspace():
+                    if is_int(line.split()[1]) and year_found in self.yearly_data:
+                        week_number = int(line.split()[1])
+                        self.yearly_data[year_found].add_week_data(week_number, line.split())
 
     def __repr__(self):
         represent_self = "PlayerHistory for " + player_list[self.adp - 1].name + ", position: " + self.position + "\n"
         if "Projected" in self.yearly_data:
-            represent_self += "    Projected year " + str(self.yearly_data["Projected"]) + "\n"
+            represent_self += "    Projected year (" + str(year) + ") " + str(self.yearly_data["Projected"]) + "\n"
         for repr_year in range(2050, 1990, -1):
             if repr_year in self.yearly_data:
                 represent_self += "    Year " + str(repr_year) + " " + str(self.yearly_data[repr_year]) + "\n"
@@ -725,7 +730,7 @@ class PlayerCurrentSeason:
 
         found_season = False
         for line in file_content:
-            if "season " + str(year) in line:
+            if "season " + str(year) in line and "(Projected)" not in line:
                 found_season = True
             elif found_season:
                 if "season " in line:
