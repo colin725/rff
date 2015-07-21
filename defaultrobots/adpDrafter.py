@@ -10,7 +10,7 @@ random.seed("seed123")
 variance = 3
 
 
-def set_info(player_history_init):
+def set_info(player_history_init, year):
     global player_history
     player_history = player_history_init
 
