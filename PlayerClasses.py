@@ -13,6 +13,10 @@ class PlayerHistory:
             except ValueError:
                 return False
 
+        self.yearly_data["Projected"] = PlayerYear(position)
+        for i in range(1, 15):
+            self.yearly_data[year - i] = PlayerYear(position)
+
         year_found = None
         for line in file_content:
             if "season " in line:
@@ -26,7 +30,6 @@ class PlayerHistory:
                         year_found = int(line.split()[1])
                     if year_found is not None:
                         if year_found == "Projected" or year_found < year:
-                            self.yearly_data[year_found] = PlayerYear(position)
                             self.yearly_data[year_found].add_season_totals(line.split())
             else:
                 if not line.isspace():
@@ -39,7 +42,7 @@ class PlayerHistory:
         if "Projected" in self.yearly_data:
             represent_self += "    Projected year (" + str(self.current_year) + ") " + str(self.yearly_data["Projected"]) + "\n"
         for repr_year in range(2050, 1990, -1):
-            if repr_year in self.yearly_data:
+            if repr_year in self.yearly_data and "None" not in str(self.yearly_data[repr_year]):
                 represent_self += "    Year " + str(repr_year) + " " + str(self.yearly_data[repr_year]) + "\n"
         return represent_self
 
@@ -352,9 +355,9 @@ class PlayerSeasonStats(PlayerStats):
     def __repr__(self):
         represent_self = "      "
         if self.team is not None:
-            represent_self += "Team: " + str(self.team) + " "
+            represent_self += "Team: " + str(self.team) + ", "
         if self.games_played is not None:
-            represent_self += "Games played: " + str(self.games_played) + " "
+            represent_self += "Games played: " + str(self.games_played) + ", "
         represent_self += super(PlayerSeasonStats, self).__repr__()
         return represent_self
 

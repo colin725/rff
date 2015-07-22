@@ -5,7 +5,6 @@ print("hello from robot1")
 # This is where you are free to implement your own AI drafter.  To start out with we have a basic drafter taking the
 # player by draft position, but you can adjust the down_shift to have it pick players X spots back from the top
 # average draft position and see how it changes the results.
-down_shift = 0
 
 
 def set_info(player_history_init, year):
@@ -26,12 +25,13 @@ def set_info(player_history_init, year):
 
 def draft_player(available_players, team):
     global current_year
-    for i in range(0, len(available_players) - down_shift):
+    for i in range(0, len(available_players)):
 
         # Access the players projections as well as past yearly and weekly stats to make your decision
         player = player_history[available_players[i]]
         projection = player.yearly_data["Projected"].season_totals
         last_season = player.yearly_data[current_year - 1].season_totals
 
-        if team.is_position_open(player_history[available_players[i + down_shift]].position):
-            return available_players[i + down_shift]
+        # Replace this logic with your own
+        if team.is_position_open(player.position):
+            return available_players[i]
