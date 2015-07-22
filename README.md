@@ -26,6 +26,10 @@ To enter your AI just implement the drafting AI and submit your .py file
 
 For the first season it would be great to open source the AIs, but we should be able to work with .pyc if needed.
 
+## Dates
+
+September 10th:  First NFL game, you must submit your AI by this date
+
 ## Details of simulated leagues
 
 * League size is set to 12 (this doesn't mean only 12 people can submit AIs, there is no limit on people submitting AIs and they can be shuffled in and out)
