@@ -12,7 +12,8 @@ Before any leagues are ran the AI is passed a list of player stats and projectio
 Use these stats, projections, and player's average draft position to determine your optimal draft selection.
 
 To evaluate run LeagueRunner.py and the output indicates the percent of playoffs made and percent of leagues won.
-The league runner fills in the other 
+By default it will run against 2014 data (your AI is passed in 2014 projections and can see historic stats from 2013 and back).
+The league runner fills in the robots with AdpDrafter.py which simply drafts by average draft position.
 
 Feel free to make any improvements to the code (while avoiding breaking existing APIs) or documentation and submit them.
 
@@ -23,7 +24,7 @@ For the first season it would be great to open source the AIs, but we should be 
 
 ## Details of simulated leagues
 
-* League size is set to 12
+* League size is set to 12 (this doesn't mean only 12 people can submit AIs, there is no limit on people submitting AIs)
 * Scoring is the standard found at sites like ESPN, but with 0.5 points per reception
 * There are 12 regular season weeks
 * The top four teams by wins and then points scored go to playoffs
@@ -33,9 +34,11 @@ For the first season it would be great to open source the AIs, but we should be 
 
 ## Data
 
+A projection is given (contains some but not all individual stats)
 Yearly data is given for all years that a players has played
 Weekly data is given for the past 3 seasons
-Make sure to check for None being returned anywhere if there is no data for a player
+
+Make sure to check for None being returned anywhere if there is no data for that player stat
 
 Uncomment the block in robot1.py to see the data printed out for one player of each position.
 
@@ -106,11 +109,20 @@ And again any of the above will return None if there wasn't data for it.
 
 (See PlayerClasses.py to dig in further)
 
+## Determining a winner
+
+The winning AI is the one which wins the highest percentage of leagues.  We plan to run at least 100,000 league simulations to take luck out of the equation as much as possible.
+
 ## Rules
 
 * No player names, the idea of creating these AIs is to evaluate players more anonymously based on data which should allow crossover from year to year
 * No random so that we can get consistent results
+* One submission per person
 
 ## Limitations
 
 * No in season management means no injury subs, no benches, no waivers, etc
+
+## In season data
+
+Reports should be able to be generated to give an idea of how well each AI is doing and possibly other interesting stats on how it's drafting has helped / hurt it so far.  (To be implemented)
