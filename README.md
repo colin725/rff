@@ -2,7 +2,7 @@
 
 ## Getting started
 
-Run LeagueRunner.py to simulate fantasy football leagues.  Requires Python 3 to run.
+Run LeagueRunner.py to simulate fantasy football leagues.  Requires Python 3.4.3 to run.
 
 robots/Robot1.py is the example class that you can add your own logic to (and rename)
 
