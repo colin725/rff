@@ -281,8 +281,8 @@ class Team:
                                 flex = player_list[player.adp - 1]
                                 break
                             te_found += 1
-                        repr_string += "  " + player_list[player.adp - 1] + "\n"
-        repr_string += "Flex:\n  " + flex + "\n"
+                        repr_string += "  " + str(player_list[player.adp - 1]) + "\n"
+        repr_string += "Flex:\n  " + str(flex) + "\n"
         repr_string += "\n"
         return repr_string
 
