@@ -59,6 +59,7 @@ PlayerHistory
     .position  => string in {"QB", "RB", "WR", "TE", "K", "DEF"}
     .adp
     .current_year
+    .current_team
     .yearly_data => PlayerYear
 
 PlayerYear
@@ -118,7 +119,12 @@ PlayerStats
     .safeties
     .kick_return_td
 
-And any of the above will return None if there wasn't data for it.
+TeamData (static to get information about a team)
+    .head_coach
+    .bye_week
+       [ Usage: team_data = TeamData.get_team_data(player_team, current_year) ]
+
+And any of the above APIs will return None if there wasn't data for it.
 
 (See PlayerClasses.py to dig in further)
 
