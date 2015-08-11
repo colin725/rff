@@ -75,7 +75,6 @@ class Robot:
 
 class League:
     def __init__(self):
-        # self.available_players = player_list.copy()
         self.available_players = list(range(0, len(player_list)))
         self.robots = robots.copy()
         self.teams = {}
@@ -422,7 +421,7 @@ with open("data/adp" + str(year) + ".csv", 'rt') as adp_csv:
         player_file_path = "data/players/" + player_position + "/" + player_name + ".csv"
         if os.path.isfile(player_file_path):
             with open(player_file_path) as current_file:
-                player_history.append(PlayerHistory(player_position, adp, current_file, year))
+                player_history.append(PlayerHistory(player_position, adp, current_file, year, player_team))
                 current_file.seek(0, 0)
                 players_current_season.append(PlayerCurrentSeason(player_position, adp, current_file, year))
         elif debug_statements:

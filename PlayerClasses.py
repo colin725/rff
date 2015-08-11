@@ -1,10 +1,11 @@
 
 class PlayerHistory:
-    def __init__(self, position, self_adp, file_content, year):
+    def __init__(self, position, self_adp, file_content, year, team):
         self.position = position
         self.adp = self_adp
         self.yearly_data = {}
         self.current_year = year
+        self.current_team = team
 
         def is_int(string):
             try:
@@ -30,7 +31,7 @@ class PlayerHistory:
                         year_found = int(line.split()[1])
                     if year_found is not None:
                         if year_found == "Projected" or year_found < year:
-                            self.yearly_data[year_found].add_season_totals(line.split())
+                            self.yearly_data[year_found].add_season_totals(line.split(), team)
             else:
                 if not line.isspace():
                     if is_int(line.split()[1]) and year_found in self.yearly_data:
@@ -53,8 +54,8 @@ class PlayerYear:
         self.season_totals = None
         self.weekly_data = {}
 
-    def add_season_totals(self, season_data):
-        self.season_totals = PlayerSeasonStats(season_data, self.position)
+    def add_season_totals(self, season_data, team):
+        self.season_totals = PlayerSeasonStats(season_data, self.position, team)
 
     def add_week_data(self, week_number, week_data):
         self.weekly_data[week_number] = PlayerWeeklyStats(week_data, self.position)
@@ -334,7 +335,7 @@ class PlayerStats:
 
 
 class PlayerSeasonStats(PlayerStats):
-    def __init__(self, data, position):
+    def __init__(self, data, position, team):
         shift = 0
         if "(Projected)" in data:
             shift = 1
@@ -346,7 +347,7 @@ class PlayerSeasonStats(PlayerStats):
         if "DEF" not in str(position):
             self.team = data[2 + shift]
         else:
-            self.team = None  # todo, match up defense with team abbreviation
+            self.team = team  # Only used for defense when the current team is obviously the team for every season
             shift -= 2
         if "K" in str(position):
             shift -= 1

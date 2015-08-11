@@ -1,4 +1,5 @@
 #!/usr/bin/python
+from TeamInfo import TeamData
 
 print("hello from robot1")
 
@@ -31,6 +32,13 @@ def draft_player(available_players, team):
         player = player_history[available_players[i]]
         projection = player.yearly_data["Projected"].season_totals
         last_season = player.yearly_data[current_year - 1].season_totals
+
+        # Access team data (head coach, bye week) by TeamData
+        player_team = projection.team
+        team_data = TeamData.get_team_data(player_team, current_year)
+        head_coach = team_data.head_coach
+        bye_week = team_data.bye_week
+
 
         # Replace this logic with your own
         if team.is_position_open(player.position):
