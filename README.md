@@ -120,6 +120,7 @@ PlayerStats
     .kick_return_td
 
 TeamData (static to get information about a team)
+
     .head_coach
     .bye_week
        [ Usage: team_data = TeamData.get_team_data(player_team, current_year) ]
