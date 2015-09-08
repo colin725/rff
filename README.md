@@ -1,5 +1,7 @@
 # Robot Fantasy Football (working title) readme
 
+Pushing the deadline to get bots submitted to October 1st.
+
 ## Getting started
 
 Run LeagueRunner.py to simulate fantasy football leagues.  Requires Python 3.4.3 to run.
